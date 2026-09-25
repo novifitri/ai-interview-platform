@@ -13,9 +13,9 @@ Penerapan prinsip *Monozukuri* (keahlian membuat produk dengan ketelitian, keind
 
 ## 2. Standar Kualitas Minimum (*Minimum Baseline Standards*)
 
-### A. Proven Correctness (Full-Stack Automated Test Suite: 39 Tests, 0 Failures)
+### A. Proven Correctness (Full-Stack Automated Test Suite: 40 Tests, 0 Failures)
 
-#### 1. Backend Test Suite (RSpec — 22 Examples, 0 Failures)
+#### 1. Backend Test Suite (RSpec — 23 Examples, 0 Failures)
 Seluruh fungsionalitas inti API dan data model dilindungi oleh pengujian RSpec:
 - **Model Specs** (`spec/models/assessment_spec.rb`, `spec/models/session_spec.rb`, `spec/models/organization_spec.rb`):
   - Memastikan relasi `belongs_to :vacancy` dan konstrain database berfungsi normal.
@@ -30,10 +30,11 @@ Seluruh fungsionalitas inti API dan data model dilindungi oleh pengujian RSpec:
   - `PATCH /api/v1/sessions/:id`: Memperbarui `candidate_name` secara sukses dengan respon JSON yang tepat.
   - Pengujian otentikasi: Menolak *unauthenticated request* (HTTP 401).
   - Pengujian isolasi tenant: Mencegah *cross-tenant data tampering* (HTTP 404 bila mencoba mengakses sesi atau portfolio milik tenant lain).
+  - `GET /api/v1/portfolios/:id/export?format=pdf`: Memvalidasi generasi dokumen PDF Fit/Gap dengan dukungan penuh karakter Unicode UTF-8 (simbol panah override `→`, bullet points `•`, dan em-dash `—`) tanpa *IncompatibleStringEncoding*.
 
 ```text
-Finished in 1 minute 9.67 seconds (files took 16.65 seconds to load)
-22 examples, 0 failures
+Finished in 7.93 seconds (files took 9.71 seconds to load)
+23 examples, 0 failures
 ```
 
 #### 2. Frontend Test Suite (Vitest + Testing Library — 17 Tests, 0 Failures)
@@ -74,7 +75,7 @@ Komponen antarmuka pengguna, sanitasi teks, dan service klien dilindungi oleh Vi
 
 ### B. Matriks Keterlacakan Pengujian terhadap Temuan Step 3 (*Findings Traceability Matrix*)
 
-Seluruh temuan masalah (*bugs & vulnerabilities*) dari Step 3 (**F-1 s/d F-9**) telah dipetakan secara presisi dan dilindungi oleh pengujian otomatis:
+Seluruh temuan masalah (*bugs & vulnerabilities*) dari Step 3 (**F-1 s/d F-10**) telah dipetakan secara presisi dan dilindungi oleh pengujian otomatis:
 
 | ID | Finding (Step 3) | Severity | Automated Test Coverage | Status |
 | :--- | :--- | :---: | :--- | :---: |
@@ -87,6 +88,7 @@ Seluruh temuan masalah (*bugs & vulnerabilities*) dari Step 3 (**F-1 s/d F-9**) 
 | **F-7** | Internet connectivity check prevents starting interview on failure | **P2** | `src/components/__tests__/HardwareCheck.test.tsx` (memvalidasi tombol *"Continue Anyway"* mengizinkan kandidat mulai wawancara meski tes internet gagal) | **PASSED** |
 | **F-8** | AI chat does not auto-scroll to latest message | **P3** | `web/src/pages/interview/InterviewPage.tsx` (`useEffect` dengan `transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' })` pada setiap update transkrip) | **VERIFIED** |
 | **F-9** | Internal skill coverage map metadata leaks into interview transcripts | **P1** | `src/utils/__tests__/transcript.test.ts` (4 tests memvalidasi pembersihan `[COVERAGE_MAP]`, metadata JSON, dan token kontrol) | **PASSED** |
+| **F-10** | Exporting portfolio / Fit & Gap report to PDF fails with HTTP 500 on assessor overrides or Unicode characters | **P1** | `spec/requests/api/v1/portfolios_spec.rb` (memvalidasi ekspor PDF dengan font TrueType UTF-8 `DejaVuSans` dan simbol override `→`) | **PASSED** |
 
 ---
 
