@@ -5,6 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import SkillPortfolioCard from "@/components/portfolio/SkillPortfolioCard";
 import { sessionsApi } from "@/services/sessions";
 import { vacanciesApi } from "@/services/vacancies";
@@ -22,6 +32,7 @@ import {
   CheckCircle2,
   ArrowRight,
   User,
+  Pencil,
   SlidersHorizontal,
 } from "lucide-react";
 import type { Portfolio, AssessorOverride, Vacancy, Assessment } from "@/types";
@@ -40,6 +51,10 @@ export default function PortfolioPage() {
   const [exporting, setExporting] = useState<"pdf" | "json" | null>(null);
   const [candidateName, setCandidateName] = useState<string | null>(null);
 
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+
   const fetchPortfolio = useCallback(async () => {
     const res = await sessionsApi.getPortfolio(Number(sessionId));
     const data = res.data as any;
@@ -52,6 +67,9 @@ export default function PortfolioPage() {
     } else if (data.portfolio) {
       setPortfolio(data.portfolio);
       setGenerating(false);
+      if (data.portfolio.candidate_name && !candidateName) {
+        setCandidateName(data.portfolio.candidate_name);
+      }
       // Build overrides map
       const overrideMap: Record<number, AssessorOverride> = {};
       data.portfolio.overrides.forEach((o: AssessorOverride) => {
@@ -59,7 +77,7 @@ export default function PortfolioPage() {
       });
       setOverrides(overrideMap);
     }
-  }, [sessionId]);
+  }, [sessionId, candidateName]);
 
   useEffect(() => {
     Promise.all([
@@ -71,7 +89,8 @@ export default function PortfolioPage() {
       .then(([, vRes, sRes, aRes]) => {
         const vList = vRes.data.vacancies || [];
         setVacancies(vList);
-        setCandidateName(sRes.data.session.candidate_name ?? null);
+        const cand = sRes.data.session.candidate_name || null;
+        setCandidateName(cand);
 
         const ass = aRes.data.assessment;
         if (ass) {
@@ -100,6 +119,20 @@ export default function PortfolioPage() {
     navigate(`/assessments/${id}/sessions/${sessionId}/fitgap/${targetVacancyId}`);
   };
 
+  const handleSaveName = async () => {
+    if (!nameInput.trim()) return;
+    setSavingName(true);
+    try {
+      await sessionsApi.update(Number(sessionId), { candidate_name: nameInput.trim() });
+      setCandidateName(nameInput.trim());
+      setEditingName(false);
+    } catch (err) {
+      console.error("Failed to update candidate name", err);
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   const handleExport = async (format: "pdf" | "json") => {
     if (!portfolio) return;
     setExporting(format);
@@ -109,6 +142,10 @@ export default function PortfolioPage() {
         format,
         selectedVacancy ? Number(selectedVacancy) : undefined
       );
+      const slug = candidateName
+        ? candidateName.toLowerCase().replace(/[^a-z0-9]/g, "-")
+        : `session-${sessionId}`;
+
       if (format === "json") {
         const blob = new Blob([JSON.stringify(res.data, null, 2)], {
           type: "application/json",
@@ -116,7 +153,7 @@ export default function PortfolioPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `portfolio-${sessionId}.json`;
+        a.download = `portfolio-${slug}.json`;
         a.click();
         URL.revokeObjectURL(url);
       } else {
@@ -124,7 +161,7 @@ export default function PortfolioPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `portfolio-${sessionId}.pdf`;
+        a.download = `portfolio-${slug}.pdf`;
         a.click();
         URL.revokeObjectURL(url);
       }
@@ -161,7 +198,7 @@ export default function PortfolioPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-foreground">
-                Candidate Portfolio
+                {candidateName ? `${candidateName}'s Portfolio` : "Candidate Portfolio"}
               </h1>
               {portfolio?.generation_status === "complete" && (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
@@ -170,11 +207,22 @@ export default function PortfolioPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-              <span className="inline-flex items-center gap-1 font-medium text-foreground">
-                <User className="h-3 w-3 text-muted-foreground" />
-                {candidateName || "Candidate"}
-              </span>
+            <div className="flex items-center flex-wrap gap-2 text-xs text-muted-foreground mt-1">
+              <div className="inline-flex items-center gap-1.5 font-semibold text-foreground bg-muted/70 px-2 py-0.5 rounded-md border border-border/60">
+                <User className="h-3.5 w-3.5 text-[#01959F]" />
+                <span>{candidateName || "Candidate"}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameInput(candidateName || "");
+                    setEditingName(true);
+                  }}
+                  className="text-muted-foreground/70 hover:text-foreground transition-colors ml-0.5 cursor-pointer"
+                  title="Edit candidate name"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              </div>
               <span>·</span>
               <span>Session #{sessionId}</span>
               {assessment && (
@@ -188,7 +236,7 @@ export default function PortfolioPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center flex-wrap gap-2 self-start sm:self-auto">
           <Link
             to={`/assessments/${id}/sessions/${sessionId}/transcript`}
             className="inline-flex items-center gap-1.5 text-xs font-medium border rounded-md px-3 py-1.5 hover:bg-accent transition-colors shadow-sm"
@@ -198,7 +246,7 @@ export default function PortfolioPage() {
           </Link>
 
           {!generating && portfolio && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center flex-wrap gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
@@ -232,18 +280,66 @@ export default function PortfolioPage() {
         </div>
       </div>
 
+      {/* Edit Candidate Name Dialog */}
+      <Dialog open={editingName} onOpenChange={setEditingName}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">Candidate Name</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Update candidate name for Session #{sessionId}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="candidate-name" className="text-xs font-semibold">
+              Full Name
+            </Label>
+            <Input
+              id="candidate-name"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="e.g. John Doe, Siti Nurhaliza"
+              className="text-sm"
+              onKeyDown={(e) => e.key === "Enter" && handleSaveName()}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setEditingName(false)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveName}
+              disabled={savingName}
+              className="bg-[#01959F] hover:bg-[#017a82] text-white"
+            >
+              {savingName && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              Save Name
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Generating state */}
       {generating && (
         <Card className="border-dashed p-10 text-center">
           <CardContent className="space-y-3 p-0">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+            <div className="w-12 h-12 rounded-full bg-[#01959F]/10 flex items-center justify-center mx-auto text-[#01959F]">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
-            <div>
-              <p className="font-semibold text-base">Generating AI Portfolio...</p>
-              <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-                The AI is synthesizing interview transcripts, extracting competency evidence, and computing anchor levels.
+            <div className="space-y-1">
+              <p className="font-semibold text-base text-foreground">
+                Generating AI Portfolio {candidateName ? `for ${candidateName}` : ""}...
               </p>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                The AI is synthesizing interview transcripts{candidateName ? ` for ${candidateName}` : ""}, extracting competency evidence, and computing anchor levels.
+              </p>
+              {candidateName && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted/80 text-xs font-semibold text-foreground mt-2 border border-border/60 shadow-sm">
+                  <User className="h-3.5 w-3.5 text-[#01959F]" />
+                  <span>Candidate: <strong>{candidateName}</strong></span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

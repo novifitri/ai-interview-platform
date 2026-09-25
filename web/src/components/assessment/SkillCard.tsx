@@ -120,7 +120,8 @@ export default function SkillCard({ index, id, form, onRemove }: SkillCardProps)
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0 sm:self-auto self-end">
+        {/* Right Controls: Desktop side-by-side, Mobile wrapped nicely without overflowing */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:shrink-0 justify-between sm:justify-end w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-border/40">
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-muted-foreground">Level:</span>
             <LevelRadio
@@ -129,34 +130,36 @@ export default function SkillCard({ index, id, form, onRemove }: SkillCardProps)
             />
           </div>
 
-          <button
-            type="button"
-            onClick={() => setAnchorsOpen((prev) => !prev)}
-            className={cn(
-              "inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md transition-colors cursor-pointer",
-              anchorsOpen
-                ? "bg-[#01959F]/10 text-[#01959F] dark:text-teal-300 font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            )}
-            title="Toggle L1-L5 rubric descriptions"
-          >
-            {anchorsOpen ? (
-              <ChevronDown className="h-3.5 w-3.5 text-[#01959F]" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5" />
-            )}
-            <span>{isCustom ? (anchorsOpen ? "Hide Rubric" : "Define Rubric (L1–L5)") : (anchorsOpen ? "Hide Rubric" : "View Rubric (L1–L5)")}</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setAnchorsOpen((prev) => !prev)}
+              className={cn(
+                "inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md transition-colors cursor-pointer",
+                anchorsOpen
+                  ? "bg-[#01959F]/10 text-[#01959F] dark:text-teal-300 font-semibold"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+              title="Toggle L1-L5 rubric descriptions"
+            >
+              {anchorsOpen ? (
+                <ChevronDown className="h-3.5 w-3.5 text-[#01959F]" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+              <span>{isCustom ? (anchorsOpen ? "Hide Rubric" : "Define Rubric (L1–L5)") : (anchorsOpen ? "Hide Rubric" : "View Rubric (L1–L5)")}</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={onRemove}
-            className="p-1 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
-            aria-label="Remove skill"
-            title="Remove from assessment"
-          >
-            <X className="h-4 w-4" />
-          </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="p-1 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
+              aria-label="Remove skill"
+              title="Remove from assessment"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -194,7 +197,7 @@ export default function SkillCard({ index, id, form, onRemove }: SkillCardProps)
                   <div key={level} className="flex flex-col sm:flex-row sm:items-start gap-1.5 sm:gap-2.5">
                     <span
                       className={cn(
-                        "text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 sm:mt-1 sm:w-28 text-center",
+                        "text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 sm:mt-1 sm:w-28 text-center w-fit sm:w-28 self-start sm:self-auto",
                         badge
                       )}
                     >
@@ -219,7 +222,7 @@ export default function SkillCard({ index, id, form, onRemove }: SkillCardProps)
                 </div>
                 <Input
                   placeholder="e.g. Practical system architecture, clean coding practices, and edge case handling..."
-                  className="h-7 text-xs bg-background"
+                  className="h-8 text-xs bg-background"
                   {...form.register(`skills.${index}.scope_include`)}
                 />
               </div>
@@ -235,7 +238,7 @@ export default function SkillCard({ index, id, form, onRemove }: SkillCardProps)
                   >
                     <span
                       className={cn(
-                        "text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 sm:mt-0.5 sm:w-28 text-center",
+                        "text-[10px] font-semibold px-2 py-0.5 rounded border shrink-0 sm:mt-0.5 sm:w-28 text-center w-fit sm:w-28 self-start sm:self-auto",
                         badge
                       )}
                     >
