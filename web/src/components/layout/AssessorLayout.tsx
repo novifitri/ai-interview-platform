@@ -61,7 +61,7 @@ export default function AssessorLayout() {
             </Link>
 
             {/* Desktop Navigation Links */}
-            <nav className="hidden md:flex items-center gap-1 border-l pl-4 border-border/60">
+            <nav aria-label="Desktop navigation" className="hidden md:flex items-center gap-1 border-l pl-4 border-border/60">
               {navItems.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
@@ -135,7 +135,7 @@ export default function AssessorLayout() {
               </div>
             )}
 
-            <nav className="space-y-1">
+            <nav aria-label="Mobile navigation" className="space-y-1">
               {navItems.map(({ href, label, icon: Icon }) => {
                 const isActive = location.pathname.startsWith(href);
                 return (

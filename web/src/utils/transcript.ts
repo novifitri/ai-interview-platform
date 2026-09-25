@@ -10,8 +10,8 @@ export function cleanTranscriptText(text: string): string {
     .replace(/\[COVERAGE[_ ]MAP[^\]]*\]/gi, "")
     .replace(/\{\s*"skills"\s*:[\s\S]*?"discovered"[\s\S]*?\}\s*/gi, "")
     .replace(/\{\s*"skills"\s*:[\s\S]*?\]\s*\}\s*/gi, "")
-    .replace(/\[TIME[_ ]CONTROL[^\]]*\][^\n]*/gi, "")
-    .replace(/\[SESSION RESUME\][^\n]*/gi, "")
+    .replace(/\[TIME[_ ]CONTROL[^\]]*\]/gi, "")
+    .replace(/\[SESSION RESUME\]/gi, "")
     .replace(/\[Start the interview[^\]]*\]/gi, "")
     .trim();
 }
