@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -8,26 +9,45 @@ import SkillPortfolioCard from "@/components/portfolio/SkillPortfolioCard";
 import { sessionsApi } from "@/services/sessions";
 import { vacanciesApi } from "@/services/vacancies";
 import { portfoliosApi } from "@/services/portfolios";
+import { assessmentsApi } from "@/services/assessments";
 import { usePolling } from "@/hooks/usePolling";
-import { ArrowLeft, Download, Loader2, RefreshCw, Zap, FileText } from "lucide-react";
-import type { Portfolio, AssessorOverride, Vacancy } from "@/types";
+import {
+  ArrowLeft,
+  Download,
+  Loader2,
+  RefreshCw,
+  Zap,
+  FileText,
+  Briefcase,
+  CheckCircle2,
+  ArrowRight,
+  User,
+  SlidersHorizontal,
+} from "lucide-react";
+import type { Portfolio, AssessorOverride, Vacancy, Assessment } from "@/types";
 
 export default function PortfolioPage() {
   const { id, sessionId } = useParams<{ id: string; sessionId: string }>();
   const navigate = useNavigate();
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
+  const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [overrides, setOverrides] = useState<Record<number, AssessorOverride>>({});
   const [vacancies, setVacancies] = useState<Vacancy[]>([]);
   const [selectedVacancy, setSelectedVacancy] = useState<string>("");
+  const [showAlternativeVacancies, setShowAlternativeVacancies] = useState(false);
   const [exporting, setExporting] = useState<"pdf" | "json" | null>(null);
   const [candidateName, setCandidateName] = useState<string | null>(null);
 
   const fetchPortfolio = useCallback(async () => {
     const res = await sessionsApi.getPortfolio(Number(sessionId));
     const data = res.data as any;
-    if (data.status === "generating" || data.portfolio?.generation_status === "generating" || data.portfolio?.generation_status === "pending") {
+    if (
+      data.status === "generating" ||
+      data.portfolio?.generation_status === "generating" ||
+      data.portfolio?.generation_status === "pending"
+    ) {
       setGenerating(true);
     } else if (data.portfolio) {
       setPortfolio(data.portfolio);
@@ -42,14 +62,30 @@ export default function PortfolioPage() {
   }, [sessionId]);
 
   useEffect(() => {
-    Promise.all([fetchPortfolio(), vacanciesApi.list(), sessionsApi.get(Number(sessionId))])
-      .then(([, vRes, sRes]) => {
-        setVacancies(vRes.data.vacancies);
+    Promise.all([
+      fetchPortfolio(),
+      vacanciesApi.list(),
+      sessionsApi.get(Number(sessionId)),
+      assessmentsApi.get(Number(id)),
+    ])
+      .then(([, vRes, sRes, aRes]) => {
+        const vList = vRes.data.vacancies || [];
+        setVacancies(vList);
         setCandidateName(sRes.data.session.candidate_name ?? null);
+
+        const ass = aRes.data.assessment;
+        if (ass) {
+          setAssessment(ass);
+          if (ass.vacancy_id) {
+            setSelectedVacancy(String(ass.vacancy_id));
+          }
+        }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error("Failed to load portfolio context", err);
+      })
       .finally(() => setLoading(false));
-  }, [fetchPortfolio, sessionId]);
+  }, [fetchPortfolio, sessionId, id]);
 
   // Poll while generating
   usePolling(fetchPortfolio, 5000, generating);
@@ -58,9 +94,10 @@ export default function PortfolioPage() {
     setOverrides((prev) => ({ ...prev, [skillId]: override }));
   };
 
-  const handleRunFitGap = () => {
-    if (!selectedVacancy || !portfolio) return;
-    navigate(`/assessments/${id}/sessions/${sessionId}/fitgap/${selectedVacancy}`);
+  const handleRunFitGap = (vacancyIdToUse?: string) => {
+    const targetVacancyId = vacancyIdToUse || selectedVacancy;
+    if (!targetVacancyId || !portfolio) return;
+    navigate(`/assessments/${id}/sessions/${sessionId}/fitgap/${targetVacancyId}`);
   };
 
   const handleExport = async (format: "pdf" | "json") => {
@@ -73,7 +110,9 @@ export default function PortfolioPage() {
         selectedVacancy ? Number(selectedVacancy) : undefined
       );
       if (format === "json") {
-        const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+        const blob = new Blob([JSON.stringify(res.data, null, 2)], {
+          type: "application/json",
+        });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -96,80 +135,124 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-48 w-full" />
-        <Skeleton className="h-48 w-full" />
+      <div className="max-w-3xl mx-auto space-y-4 pb-12">
+        <Skeleton className="h-10 w-72" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
       </div>
     );
   }
 
+  const linkedVacancy =
+    (assessment?.vacancy_id && vacancies.find((v) => v.id === assessment.vacancy_id)) ||
+    (assessment?.vacancy ? { id: assessment.vacancy.id, role_title: assessment.vacancy.role_title } : null);
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2">
-          <Link to={`/assessments/${id}/invite`} className="text-muted-foreground hover:text-foreground">
+    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+      {/* Header Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            to={`/assessments/${id}/invite`}
+            className="p-1.5 rounded-lg border border-border/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+          >
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div>
-            <h1 className="text-lg font-semibold">Portfolio Results</h1>
-            {candidateName && (
-              <p className="text-sm text-muted-foreground">{candidateName}</p>
-            )}
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-foreground">
+                Candidate Portfolio
+              </h1>
+              {portfolio?.generation_status === "complete" && (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  <CheckCircle2 className="h-3 w-3" /> Ready
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+              <span className="inline-flex items-center gap-1 font-medium text-foreground">
+                <User className="h-3 w-3 text-muted-foreground" />
+                {candidateName || "Candidate"}
+              </span>
+              <span>·</span>
+              <span>Session #{sessionId}</span>
+              {assessment && (
+                <>
+                  <span>·</span>
+                  <span className="truncate max-w-[200px]">{assessment.name}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-2">
+        {/* Quick Actions */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <Link
             to={`/assessments/${id}/sessions/${sessionId}/transcript`}
-            className="inline-flex items-center gap-1 text-sm border rounded-md px-3 py-1.5 hover:bg-accent transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium border rounded-md px-3 py-1.5 hover:bg-accent transition-colors shadow-sm"
           >
-            <FileText className="h-3.5 w-3.5" />
+            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
             Transcript
           </Link>
+
           {!generating && portfolio && (
-            <>
+            <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
+                className="text-xs h-8 shadow-sm"
                 onClick={() => handleExport("pdf")}
                 disabled={!!exporting}
               >
-                {exporting === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                {exporting === "pdf" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                )}
                 PDF
               </Button>
               <Button
                 variant="outline"
                 size="sm"
+                className="text-xs h-8 shadow-sm"
                 onClick={() => handleExport("json")}
                 disabled={!!exporting}
               >
-                {exporting === "json" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-1" />}
+                {exporting === "json" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Download className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                )}
                 JSON
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
 
       {/* Generating state */}
       {generating && (
-        <div className="border rounded-lg p-12 text-center space-y-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          <div>
-            <p className="font-medium">Generating portfolio...</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              The AI is analyzing the interview transcript. This takes about 2 minutes.
-            </p>
-          </div>
-        </div>
+        <Card className="border-dashed p-10 text-center">
+          <CardContent className="space-y-3 p-0">
+            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto text-primary">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+            <div>
+              <p className="font-semibold text-base">Generating AI Portfolio...</p>
+              <p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
+                The AI is synthesizing interview transcripts, extracting competency evidence, and computing anchor levels.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Failed state */}
       {!generating && portfolio?.generation_status === "failed" && (
-        <div className="border border-destructive/40 rounded-lg p-6 text-center space-y-3">
-          <p className="text-sm text-destructive">Portfolio generation failed.</p>
+        <div className="border border-destructive/40 bg-destructive/10 rounded-xl p-6 text-center space-y-3">
+          <p className="text-sm text-destructive font-medium">Portfolio generation failed.</p>
           <Button
             variant="outline"
             size="sm"
@@ -178,7 +261,7 @@ export default function PortfolioPage() {
               setGenerating(true);
             }}
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" /> Retry Portfolio Generation
           </Button>
         </div>
       )}
@@ -186,19 +269,145 @@ export default function PortfolioPage() {
       {/* Ready state */}
       {!generating && portfolio?.generation_status === "complete" && (
         <>
+          {/* Vacancy-Centric Fit/Gap Section */}
+          <Card className="border-[#01959F]/30 dark:border-[#01959F]/40 bg-gradient-to-br from-[#01959F]/5 via-background to-background shadow-sm">
+            <CardContent className="p-5 space-y-4">
+              {linkedVacancy ? (
+                // Pre-linked vacancy flow: 1-click action
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#01959F]/10 dark:bg-[#01959F]/20 text-[#01959F] dark:text-teal-300 border border-[#01959F]/20">
+                          <Briefcase className="h-3 w-3" /> Linked Vacancy
+                        </span>
+                        <span className="text-xs text-muted-foreground">Target Role</span>
+                      </div>
+                      <h3 className="text-base font-bold text-foreground">
+                        {linkedVacancy.role_title}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        This assessment was linked to this role. Run Fit/Gap matching to benchmark candidate skills against vacancy expectations.
+                      </p>
+                    </div>
+
+                    <Button
+                      onClick={() => handleRunFitGap(String(linkedVacancy.id))}
+                      className="bg-[#01959F] hover:bg-[#007E86] text-white font-semibold shadow-md shadow-[#01959F]/20 px-5 py-2.5 rounded-lg transition-all shrink-0 hover:shadow-lg hover:shadow-[#01959F]/30 flex items-center"
+                    >
+                      <Zap className="h-4 w-4 mr-1.5 text-[#FBC037] fill-[#FBC037]" />
+                      Run Fit/Gap Analysis →
+                    </Button>
+                  </div>
+
+                  {/* Alternative Vacancy Option */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowAlternativeVacancies(!showAlternativeVacancies)}
+                      className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors font-medium"
+                    >
+                      <SlidersHorizontal className="h-3 w-3" />
+                      {showAlternativeVacancies
+                        ? "Hide alternative vacancies"
+                        : "Compare with a different vacancy instead..."}
+                    </button>
+
+                    {showAlternativeVacancies && (
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 mt-3 pt-3 border-t border-border/60">
+                        <Select
+                          value={selectedVacancy}
+                          onValueChange={setSelectedVacancy}
+                        >
+                          <SelectTrigger className="w-full sm:w-64 bg-background">
+                            <SelectValue placeholder="Choose alternative vacancy..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {vacancies.map((v) => (
+                              <SelectItem key={v.id} value={String(v.id)}>
+                                {v.role_title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRunFitGap()}
+                          disabled={!selectedVacancy || selectedVacancy === String(linkedVacancy.id)}
+                        >
+                          Compare Alternate Vacancy →
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                // Standalone assessment: recruiter chooses vacancy
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                      <Briefcase className="h-4 w-4 text-[#01959F]" />
+                      Fit/Gap Analysis with Vacancy
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Compare candidate competencies against an open vacancy to identify strengths and skill gaps.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                    <Select
+                      value={selectedVacancy}
+                      onValueChange={setSelectedVacancy}
+                    >
+                      <SelectTrigger className="w-full sm:w-64 bg-background">
+                        <SelectValue placeholder="Choose target vacancy..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {vacancies.map((v) => (
+                          <SelectItem key={v.id} value={String(v.id)}>
+                            {v.role_title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={() => handleRunFitGap()}
+                      disabled={!selectedVacancy}
+                      className="bg-[#01959F] hover:bg-[#007E86] text-white font-semibold shadow-md shadow-[#01959F]/20 px-5 py-2.5 rounded-lg transition-all hover:shadow-lg hover:shadow-[#01959F]/30 disabled:opacity-50 disabled:shadow-none flex items-center"
+                    >
+                      <Zap className="h-4 w-4 mr-1.5 text-[#FBC037] fill-[#FBC037]" />
+                      Run Fit/Gap Analysis →
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Configured skills */}
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold">Configured Skills</h2>
-            {portfolio.skills
-              .filter((s) => !s.is_discovered)
-              .map((skill) => (
-                <SkillPortfolioCard
-                  key={skill.id}
-                  skill={skill}
-                  override={overrides[skill.id]}
-                  onOverrideSaved={(o) => handleOverrideSaved(skill.id, o)}
-                />
-              ))}
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-foreground">
+                Configured Competencies
+              </h2>
+              <span className="text-xs text-muted-foreground font-medium">
+                {portfolio.skills.filter((s) => !s.is_discovered).length} evaluated
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {portfolio.skills
+                .filter((s) => !s.is_discovered)
+                .map((skill) => (
+                  <SkillPortfolioCard
+                    key={skill.id}
+                    skill={skill}
+                    override={overrides[skill.id]}
+                    onOverrideSaved={(o) => handleOverrideSaved(skill.id, o)}
+                  />
+                ))}
+            </div>
           </div>
 
           {/* Discovered skills */}
@@ -206,49 +415,36 @@ export default function PortfolioPage() {
             <>
               <Separator />
               <div className="space-y-3">
-                <div>
-                  <h2 className="text-sm font-semibold flex items-center gap-1.5">
-                    <Zap className="h-4 w-4 text-amber-500" />
-                    Discovered Skills
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    Skills the AI probed that were not in the original assessment
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold flex items-center gap-1.5 text-foreground">
+                      <Zap className="h-4 w-4 text-amber-500" />
+                      Discovered Skills
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      Skills organically uncovered by the AI during the interview that were not part of the initial assessment plan.
+                    </p>
+                  </div>
+                  <span className="text-xs text-amber-700 dark:text-amber-400 font-semibold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800">
+                    {portfolio.skills.filter((s) => s.is_discovered).length} discovered
+                  </span>
                 </div>
-                {portfolio.skills
-                  .filter((s) => s.is_discovered)
-                  .map((skill) => (
-                    <SkillPortfolioCard
-                      key={skill.id}
-                      skill={skill}
-                      override={overrides[skill.id]}
-                      onOverrideSaved={(o) => handleOverrideSaved(skill.id, o)}
-                    />
-                  ))}
+
+                <div className="space-y-2.5">
+                  {portfolio.skills
+                    .filter((s) => s.is_discovered)
+                    .map((skill) => (
+                      <SkillPortfolioCard
+                        key={skill.id}
+                        skill={skill}
+                        override={overrides[skill.id]}
+                        onOverrideSaved={(o) => handleOverrideSaved(skill.id, o)}
+                      />
+                    ))}
+                </div>
               </div>
             </>
           )}
-
-          <Separator />
-
-          {/* Fit/Gap */}
-          <div className="flex items-center gap-3">
-            <Select value={selectedVacancy} onValueChange={setSelectedVacancy}>
-              <SelectTrigger className="w-56">
-                <SelectValue placeholder="Choose vacancy..." />
-              </SelectTrigger>
-              <SelectContent>
-                {vacancies.map((v) => (
-                  <SelectItem key={v.id} value={String(v.id)}>
-                    {v.role_title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleRunFitGap} disabled={!selectedVacancy}>
-              Run Fit/Gap Analysis →
-            </Button>
-          </div>
         </>
       )}
     </div>

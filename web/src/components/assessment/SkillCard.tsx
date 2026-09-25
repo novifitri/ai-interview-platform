@@ -1,11 +1,9 @@
-import { useState } from "react";
 import { UseFormReturn, useWatch } from "react-hook-form";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X, ChevronDown, ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { GripVertical, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import LevelRadio from "./LevelRadio";
-import CustomSkillForm from "./CustomSkillForm";
 import { cn } from "@/lib/utils";
 import type { AssessmentFormValues } from "@/pages/assessments/AssessmentNewPage";
 
@@ -17,13 +15,12 @@ interface SkillCardProps {
 }
 
 export default function SkillCard({ index, id, form, onRemove }: SkillCardProps) {
-  const [anchorsOpen, setAnchorsOpen] = useState(false);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
 
   const skill = useWatch({ control: form.control, name: `skills.${index}` });
-  const isCustom = skill?.is_custom;
-  const skillLabel = skill?.skill_label || "New Skill";
+  const isCustom = Boolean(skill?.is_custom || !skill?.skill_id);
+  const skillLabel = skill?.skill_label || "";
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -35,78 +32,71 @@ export default function SkillCard({ index, id, form, onRemove }: SkillCardProps)
       ref={setNodeRef}
       style={style}
       className={cn(
-        "border rounded-lg bg-white",
-        isDragging && "opacity-50 shadow-lg"
+        "border rounded-xl bg-card p-3 sm:px-4 shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-border/80",
+        isDragging && "opacity-50 shadow-lg ring-2 ring-primary/20"
       )}
     >
-      {/* Card header */}
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <button
           type="button"
-          className="cursor-grab text-muted-foreground hover:text-foreground touch-none"
+          className="cursor-grab text-muted-foreground/60 hover:text-foreground touch-none shrink-0"
           {...attributes}
           {...listeners}
+          title="Drag to reorder priority"
         >
           <GripVertical className="h-4 w-4" />
         </button>
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1 space-y-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-sm truncate">{skillLabel}</span>
-            <span className="text-xs text-muted-foreground shrink-0">
-              {isCustom ? "Custom" : skill?.skill_id ? `SK-${String(skill.skill_id).padStart(3, "0")}` : ""}
-            </span>
+            {isCustom ? (
+              <div className="flex-1 max-w-sm">
+                <Input
+                  placeholder="Enter custom skill name (e.g. System Design)"
+                  className="h-8 text-sm font-medium bg-background"
+                  {...form.register(`skills.${index}.skill_label`, { required: true })}
+                />
+              </div>
+            ) : (
+              <span className="font-semibold text-sm text-foreground truncate">
+                {skillLabel || "Skill"}
+              </span>
+            )}
+
+            {isCustom ? (
+              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                Custom
+              </span>
+            ) : skill?.skill_id ? (
+              <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                SK-{String(skill.skill_id).padStart(3, "0")}
+              </span>
+            ) : null}
           </div>
+          <p className="text-xs text-muted-foreground">
+            Target Competency Level for AI Evaluation
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 shrink-0 sm:self-auto self-end">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Level:</span>
+          <LevelRadio
+            value={skill?.expected_level ?? 3}
+            onChange={(v) => form.setValue(`skills.${index}.expected_level`, v)}
+          />
         </div>
 
         <button
           type="button"
           onClick={onRemove}
-          className="text-muted-foreground hover:text-destructive transition-colors"
+          className="p-1 rounded-md text-muted-foreground/60 hover:text-destructive hover:bg-destructive/10 transition-colors"
           aria-label="Remove skill"
+          title="Remove from assessment"
         >
           <X className="h-4 w-4" />
         </button>
-      </div>
-
-      {/* Card body */}
-      <div className="px-3 pb-3 space-y-3">
-        {isCustom ? (
-          <CustomSkillForm index={index} form={form} />
-        ) : (
-          <div className="space-y-3">
-            {/* B7 skill: show anchors toggle */}
-            <button
-              type="button"
-              onClick={() => setAnchorsOpen((o) => !o)}
-              className="flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              {anchorsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              {anchorsOpen ? "Hide L1–L5 anchors" : "Show L1–L5 anchors"}
-            </button>
-
-            {anchorsOpen && (
-              <div className="text-xs text-muted-foreground space-y-1 bg-muted/50 rounded p-2">
-                {[1, 2, 3, 4, 5].map((level) => {
-                  const anchor = skill?.[`l${level}_anchor` as keyof typeof skill] as string;
-                  return anchor ? (
-                    <div key={level}>
-                      <span className="font-medium text-foreground">L{level}</span> {anchor}
-                    </div>
-                  ) : null;
-                })}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <span className="text-xs text-muted-foreground">Expected level:</span>
-              <LevelRadio
-                value={skill?.expected_level ?? 3}
-                onChange={(v) => form.setValue(`skills.${index}.expected_level`, v)}
-              />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -35,7 +35,7 @@ graph TD
 
 1. **Pembuatan Asesmen Terarah**:
    - Recruiter memilih posisi lowongan target (*Target Vacancy*) di awal formulir.
-   - **Smart Auto-Fill Skills**: Kebutuhan skill dan ekspektasi level dari lowongan otomatis terisi ke dalam formulir asesmen, menghemat waktu setup recruiter.
+   - **Smart Auto-Fill Skills**: Kebutuhan skill dan ekspektasi level dari lowongan otomatis terimpor ke dalam formulir asesmen. Recruiter tidak perlu lagi mengisi scope, kriteria include/exclude, atau anchor L1–L5 secara manual.
 2. **Eliminasi Langkah Manual**:
    - Portfolio kandidat langsung membawa konteks lowongan target.
    - Recruiter tidak perlu memilih lowongan secara manual di halaman portfolio; analisis Fit/Gap langsung siap dijalankan dalam 1 klik.
