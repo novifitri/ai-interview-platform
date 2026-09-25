@@ -4,38 +4,10 @@
 
 Penerapan prinsip *Monozukuri* (keahlian membuat produk dengan ketelitian, keindahan, dan keandalan tinggi) diwujudkan melalui integrasi menyeluruh di seluruh lapisan sistem (*full-stack*):
 
-```mermaid
-graph TD
-    subgraph Frontend ["Frontend (React + Vite + Tailwind)"]
-        UI1["Modern 50/50 Showcase Login"]
-        UI2["Vacancy-Centric Assessment Flow"]
-        UI3["Mobile Drawer & Responsive Rubric Pills"]
-        UI4["Candidate Name Display & Input Integration"]
-    end
-
-    subgraph API ["API & Business Logic (Ruby on Rails)"]
-        Ctrl["Sessions & Assessments Controller (Strong Params)"]
-        MW["TenantResolverMiddleware (JWT & Scheme Detection)"]
-        Engine["FitGap::Engine (Delta Matching & Override Logic)"]
-    end
-
-    subgraph Data ["Data Layer (PostgreSQL)"]
-        M1["add_vacancy_id_to_assessments"]
-        M2["add_candidate_name_to_sessions"]
-        M3["Tenant-Scoped Indexing & Schema Constraints"]
-    end
-
-    subgraph Testing ["Automated Assurance (RSpec)"]
-        T1["Model Specs: Assessment & Session (100% Green)"]
-        T2["Service Specs: FitGap::Engine (Delta, Exceed, Gap, Overrides)"]
-        T3["Request Specs: Tenant Protection & Candidate Name PATCH"]
-    end
-
-    Frontend --> API
-    API --> Data
-    Testing -.-> API
-    Testing -.-> Data
-```
+* **Frontend (React + Vite + Tailwind)**: Layout login modern 50/50 showcase, alur asesmen berbasis lowongan (*vacancy-centric*), mobile drawer navigation, kontrol segmented pill rubrik L1–L5 yang adaptif, serta integrasi penamaan kandidat.
+* **API & Business Logic (Ruby on Rails)**: Penguatan controller dengan *Strong Parameters*, resolusi tenant otomatis via `TenantResolverMiddleware`, serta kalkulasi kecocokan skill cerdas dan penanganan override pada `FitGap::Engine`.
+* **Data Layer (PostgreSQL)**: Migrasi database yang aman (*reversible*) untuk penambahan `vacancy_id` dan `candidate_name`, disertai indeks dan konstrain multi-tenant.
+* **Automated Assurance (RSpec & Vitest)**: Rangkaian uji otomatis *end-to-end* yang memvalidasi model, service kalkulasi, isolasi data multi-tenant, sanitasi transkrip, dan kestabilan antarmuka pengguna.
 
 ---
 
